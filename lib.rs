@@ -28,7 +28,6 @@ impl<'a> StringCasesExt for &'a str {
                 string.push(chr);
             }
         }
-        string.shrink_to_fit();
         string
     }
 }
