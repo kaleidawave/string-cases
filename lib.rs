@@ -17,7 +17,7 @@ impl<'a> StringCasesExt for &'a str {
 
     fn to_pascal_case(&self) -> String {
         let mut last_was_underscore_or_start = true;
-        let mut string = String::new();
+        let mut string = String::with_capacity(self.len());
         for chr in self.chars() {
             if chr == '_' {
                 last_was_underscore_or_start = true;
@@ -28,6 +28,7 @@ impl<'a> StringCasesExt for &'a str {
                 string.push(chr);
             }
         }
+        string.shrink_to_fit();
         string
     }
 }
