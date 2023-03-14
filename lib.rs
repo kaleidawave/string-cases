@@ -1,55 +1,91 @@
+#![doc = include_str!("./README.md")]
+
+/// Extension trait for adding methods
 pub trait StringCasesExt {
+    /// '_' defines boundaries
     fn to_snake_case(&self) -> String;
 
+    /// '-' defines boundaries
     fn to_kebab_case(&self) -> String;
 
+    /// Differences in cases define boundaries
+    fn to_camel_case(&self) -> String;
+
+    /// Differences in cases define boundaries. First character is always uppercase
     fn to_pascal_case(&self) -> String;
 }
 
-impl<'a> StringCasesExt for &'a str {
+impl<T> StringCasesExt for T
+where
+    T: std::ops::Deref<Target = str>,
+{
     fn to_snake_case(&self) -> String {
-        apply_camel_transform(self, '_')
+        apply_divider_transform(self, '_')
     }
 
     fn to_kebab_case(&self) -> String {
-        apply_camel_transform(self, '-')
+        apply_divider_transform(self, '-')
+    }
+
+    fn to_camel_case(&self) -> String {
+        apply_case_transform(self, false)
     }
 
     fn to_pascal_case(&self) -> String {
-        let mut last_was_underscore_or_start = true;
-        let mut string = String::with_capacity(self.len());
-        for chr in self.chars() {
-            if chr == '_' {
-                last_was_underscore_or_start = true;
-            } else if last_was_underscore_or_start {
-                last_was_underscore_or_start = false;
-                string.extend(chr.to_uppercase());
-            } else {
-                string.push(chr);
-            }
-        }
-        string
+        apply_case_transform(self, true)
     }
 }
 
-pub(crate) fn apply_camel_transform(s: &str, divider: char) -> String {
+fn apply_divider_transform(s: &str, divider: char) -> String {
     let mut peekable = s.chars().peekable();
     let mut string = String::with_capacity(s.len());
+    let mut previous_was_uppercase = false;
+
     while let Some(character) = peekable.next() {
         if let '_' | '-' = character {
             string.push(divider);
             continue;
         }
 
-        string.extend(character.to_lowercase());
-        if character.is_lowercase()
-            && peekable
-                .peek()
-                .copied()
-                .map(|c| c.is_uppercase() || c.is_numeric())
-                .unwrap_or(false)
-        {
+        let upcoming = peekable.peek().copied();
+
+        let uppercase_sequence_to_lower = previous_was_uppercase
+            && character.is_uppercase()
+            && upcoming.map(char::is_lowercase).unwrap_or(false);
+
+        if uppercase_sequence_to_lower {
             string.push(divider);
+            string.extend(character.to_lowercase());
+            continue;
+        }
+
+        let lowercase_to_other = character.is_lowercase()
+            && upcoming
+                .map(|c| c.is_uppercase() || c.is_numeric())
+                .unwrap_or(false);
+
+        string.extend(character.to_lowercase());
+
+        if lowercase_to_other {
+            string.push(divider);
+        }
+
+        previous_was_uppercase = character.is_uppercase();
+    }
+    string
+}
+
+fn apply_case_transform(s: &str, uppercase_first: bool) -> String {
+    let mut last_was_divider = uppercase_first;
+    let mut string = String::new();
+    for chr in s.chars() {
+        if chr == '_' {
+            last_was_divider = true;
+        } else if last_was_divider {
+            last_was_divider = false;
+            string.extend(chr.to_uppercase());
+        } else {
+            string.push(chr);
         }
     }
     string
@@ -60,6 +96,12 @@ mod tests {
     use super::StringCasesExt;
 
     #[test]
+    fn works_on_string() {
+        let x: String = "test".into();
+        let _ = x.to_snake_case();
+    }
+
+    #[test]
     fn snake_case() {
         assert_eq!("SomeStruct".to_snake_case(), "some_struct");
         assert_eq!("SomeTLA".to_snake_case(), "some_tla");
@@ -67,6 +109,7 @@ mod tests {
             "Member_With_underscore".to_snake_case(),
             "member_with_underscore"
         );
+        assert_eq!("JSXElement".to_snake_case(), "jsx_element");
         assert_eq!("Field6".to_snake_case(), "field_6");
     }
 
@@ -82,6 +125,17 @@ mod tests {
     }
 
     #[test]
+    fn camel_case() {
+        assert_eq!("Some_Struct".to_camel_case(), "SomeStruct");
+        assert_eq!("some_thing".to_camel_case(), "someThing");
+        assert_eq!(
+            "Member_With_underscore".to_camel_case(),
+            "MemberWithUnderscore"
+        );
+        assert_eq!("field6".to_camel_case(), "field6");
+    }
+
+    #[test]
     fn pascal_case() {
         assert_eq!("Some_Struct".to_pascal_case(), "SomeStruct");
         assert_eq!("some_thing".to_pascal_case(), "SomeThing");
@@ -89,6 +143,6 @@ mod tests {
             "Member_With_underscore".to_pascal_case(),
             "MemberWithUnderscore"
         );
-        assert_eq!("Field6".to_pascal_case(), "Field6");
+        assert_eq!("field6".to_pascal_case(), "Field6");
     }
 }
