@@ -34,7 +34,7 @@ impl<'a> StringCasesExt for &'a str {
 
 pub(crate) fn apply_camel_transform(s: &str, divider: char) -> String {
     let mut peekable = s.chars().peekable();
-    let mut string = String::new();
+    let mut string = String::with_capacity(s.len());
     while let Some(character) = peekable.next() {
         if let '_' | '-' = character {
             string.push(divider);
