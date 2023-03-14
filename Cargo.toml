@@ -1,5 +1,5 @@
 [package]
-name = "string-case-convert"
+name = "string-cases"
 version = "0.0.0"
 edition = "2021"
 description = "String case conversion utilities"
