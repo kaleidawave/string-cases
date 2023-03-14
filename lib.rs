@@ -17,7 +17,7 @@ impl<'a> StringCasesExt for &'a str {
 
     fn to_pascal_case(&self) -> String {
         let mut last_was_underscore_or_start = true;
-        let mut string = String::new();
+        let mut string = String::with_capacity(self.len());
         for chr in self.chars() {
             if chr == '_' {
                 last_was_underscore_or_start = true;
@@ -34,7 +34,7 @@ impl<'a> StringCasesExt for &'a str {
 
 pub(crate) fn apply_camel_transform(s: &str, divider: char) -> String {
     let mut peekable = s.chars().peekable();
-    let mut string = String::new();
+    let mut string = String::with_capacity(s.len());
     while let Some(character) = peekable.next() {
         if let '_' | '-' = character {
             string.push(divider);
