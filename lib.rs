@@ -1,4 +1,5 @@
 #![doc = include_str!("./README.md")]
+#![warn(clippy::pedantic)]
 
 /// Extension trait for adding methods
 pub trait StringCasesExt {
@@ -36,59 +37,72 @@ where
     }
 }
 
+use std::borrow::Cow;
+
 fn apply_divider_transform(s: &str, divider: char) -> String {
-    let mut peekable = s.chars().peekable();
-    let mut string = String::with_capacity(s.len());
-    let mut previous_was_uppercase = false;
-
-    while let Some(character) = peekable.next() {
-        if let '_' | '-' = character {
-            string.push(divider);
-            continue;
-        }
-
-        let upcoming = peekable.peek().copied();
-
-        let uppercase_sequence_to_lower = previous_was_uppercase
-            && character.is_uppercase()
-            && upcoming.map(char::is_lowercase).unwrap_or(false);
-
-        if uppercase_sequence_to_lower {
-            string.push(divider);
-            string.extend(character.to_lowercase());
-            continue;
-        }
-
-        let lowercase_to_other = character.is_lowercase()
-            && upcoming
-                .map(|c| c.is_uppercase() || c.is_numeric())
-                .unwrap_or(false);
-
-        string.extend(character.to_lowercase());
-
-        if lowercase_to_other {
-            string.push(divider);
-        }
-
-        previous_was_uppercase = character.is_uppercase();
+    fn is_break(c: char) -> bool {
+        c.is_uppercase() || matches!(c, '_' | '-' | ' ') || c.is_ascii_digit()
     }
-    string
+
+    let mut upto = 0;
+    let mut acc = Cow::Borrowed("");
+    let mut last_divider = false;
+
+    for (idx, matched) in s.match_indices(is_break) {
+        let before = &s[upto..idx];
+        acc.to_mut().push_str(before);
+
+        if let "-" | "_" | " " = matched {
+            acc.to_mut().push(divider);
+            upto = idx + matched.len();
+            last_divider = true;
+        } else {
+            let after = &s[idx..];
+            let mut chars = after.chars();
+            let first_char = chars.next().unwrap();
+            let second_char = chars.next();
+
+            // TODO this condition is a bit of a mess
+            if !last_divider
+                && upto > 0
+                && (!before.is_empty() || second_char.is_some_and(|c| !is_break(c)))
+            {
+                acc.to_mut().push(divider);
+            }
+
+            acc.to_mut().extend(first_char.to_lowercase());
+
+            upto = idx + first_char.len_utf8();
+            last_divider = false;
+        }
+    }
+
+    acc += &s[upto..];
+
+    acc.into_owned()
 }
 
+/// TODO should `Abc 123` be `Abc123` (remove spaces)?
 fn apply_case_transform(s: &str, uppercase_first: bool) -> String {
-    let mut last_was_divider = uppercase_first;
-    let mut string = String::new();
-    for chr in s.chars() {
-        if chr == '_' {
-            last_was_divider = true;
-        } else if last_was_divider {
-            last_was_divider = false;
-            string.extend(chr.to_uppercase());
-        } else {
-            string.push(chr);
+    let mut acc = Cow::Borrowed("");
+    let mut upto = 0;
+    if uppercase_first {
+        if let Some(chr) = s.chars().next() {
+            acc.to_mut().extend(chr.to_uppercase());
+            upto += chr.len_utf8();
         }
     }
-    string
+    for (idx, _) in s.match_indices('_') {
+        acc += &s[upto..idx];
+        let after = &s[idx + 1..];
+        upto = idx + 1;
+        if let Some(chr) = after.chars().next() {
+            acc.to_mut().extend(chr.to_uppercase());
+            upto += chr.len_utf8();
+        }
+    }
+    acc += &s[upto..];
+    acc.into_owned()
 }
 
 #[cfg(test)]
@@ -111,6 +125,7 @@ mod tests {
         );
         assert_eq!("JSXElement".to_snake_case(), "jsx_element");
         assert_eq!("Field6".to_snake_case(), "field_6");
+        assert_eq!("Field 6".to_snake_case(), "field_6");
     }
 
     #[test]
