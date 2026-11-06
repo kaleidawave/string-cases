@@ -1,13 +1,10 @@
 [package]
 name = "string-cases"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "String case conversion utilities"
 license = "MIT"
 repository = "https://github.com/kaleidawave/string-cases"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 path = "./lib.rs"
-
-[dependencies]
