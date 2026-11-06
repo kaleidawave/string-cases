@@ -3,16 +3,16 @@
 
 /// Extension trait for adding methods
 pub trait StringCasesExt {
-	/// '_' defines boundaries
+	/// `snake_case`. '_' defines boundaries
 	fn to_snake_case(&self) -> Cow<'_, str>;
 
-	/// '-' defines boundaries
+	/// `kebab-case` '-' defines boundaries
 	fn to_kebab_case(&self) -> Cow<'_, str>;
 
-	/// Differences in cases define boundaries
+	/// `CamelCase` Differences in cases define boundaries
 	fn to_camel_case(&self) -> Cow<'_, str>;
 
-	/// Differences in cases define boundaries. First character is always uppercase
+	/// `PascalCase` Differences in cases define boundaries. First character is always uppercase
 	fn to_pascal_case(&self) -> Cow<'_, str>;
 }
 
@@ -81,8 +81,11 @@ fn apply_divider_transform(s: &str, divider: char) -> Cow<'_, str> {
 	acc
 }
 
-/// TODO should `Abc 123` be `Abc123` (remove spaces)?
 fn apply_case_transform(s: &str, uppercase_first: bool) -> Cow<'_, str> {
+	fn is_break(c: char) -> bool {
+		matches!(c, '_' | '-' | ' ')
+	}
+
 	let mut acc = Cow::Borrowed("");
 	let mut upto = 0;
 	if uppercase_first {
@@ -91,10 +94,11 @@ fn apply_case_transform(s: &str, uppercase_first: bool) -> Cow<'_, str> {
 			upto += chr.len_utf8();
 		}
 	}
-	for (idx, _) in s.match_indices('_') {
+
+	for (idx, matched) in s.match_indices(is_break) {
 		acc += &s[upto..idx];
-		let after = &s[idx + 1..];
-		upto = idx + 1;
+		let after = &s[idx..][matched.len()..];
+		upto = idx + matched.len();
 		if let Some(chr) = after.chars().next() {
 			acc.to_mut().extend(chr.to_uppercase());
 			upto += chr.len_utf8();
